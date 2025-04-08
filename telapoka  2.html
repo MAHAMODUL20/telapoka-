@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telapoka - The Roach Flapper</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #333; /* Dark background for contrast */
+            margin: 0;
+            font-family: 'Press Start 2P', cursive;
+            color: #fff;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        #game-container {
+            position: relative;
+            border: 5px solid #fff;
+            border-radius: 10px;
+            overflow: hidden; /* Keep elements inside */
+            background-color: #70c5ce; /* Sky blue background */
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            background-color: transparent; /* Canvas background is handled by container */
+        }
+
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5em;
+            z-index: 10;
+            text-shadow: 3px 3px 0 #000;
+        }
+
+        #message-area {
+            position: absolute;
+            bottom: 10px; /* Positioned above the ground */
+            left: 10px;
+            font-size: 0.8em;
+            color: #ffcc00; /* Yellow color */
+            z-index: 10;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+         #joy-bangla-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5em;
+            color: #ff0000; /* Red color */
+            z-index: 11; /* Above score */
+            text-shadow: 3px 3px 0 #000;
+            display: none; /* Hidden by default */
+            animation: fadeOut 1.5s forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+        }
+
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 20;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #start-screen h1, #game-over-screen h2 {
+            font-size: 2em;
+            margin-bottom: 15px; /* Reduced margin */
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #start-screen p, #game-over-screen p {
+            font-size: 1em;
+            margin-bottom: 15px; /* Reduced margin */
+        }
+
+        .start-button, .restart-button {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2em;
+            padding: 15px 30px;
+            background-color: #4CAF50; /* Green */
+            color: white;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            text-shadow: 1px 1px 0 #000;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 5px #999;
+            margin-top: 10px; /* Added margin */
+        }
+
+        .start-button:hover, .restart-button:hover {
+            background-color: #45a049;
+        }
+        .start-button:active, .restart-button:active {
+             background-color: #3e8e41;
+             box-shadow: 0 2px #666;
+             transform: translateY(4px);
+        }
+
+        #game-over-image {
+            max-width: 70%; /* Adjusted size */
+            max-height: 35%; /* Adjusted size */
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border: 3px solid #fff;
+        }
+
+        #game-over-taunt {
+            font-size: 0.9em; /* Slightly smaller */
+            color: #ffcc00; /* Yellow */
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        #final-score-display, #final-rank-display {
+             font-size: 1.1em;
+             margin-bottom: 10px;
+        }
+         #final-rank-display span {
+             color: #00ff00; /* Green for rank */
+             font-weight: bold;
+         }
+
+        /* Hide screens initially */
+        #game-over-screen {
+            display: none;
+        }
+        #start-screen {
+            display: flex; /* Show start screen initially */
+        }
+
+        /* Ensure canvas takes precedence when game is running */
+        #game-container.playing #start-screen,
+        #game-container.playing #game-over-screen {
+            display: none;
+        }
+        #game-container.game-over #game-over-screen {
+            display: flex;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="score-display">0</div>
+        <div id="message-area">Free Palestine 🇵🇸 End the Occupation!</div>
+         <div id="joy-bangla-message">Joy Bangla!</div>
+
+        <div id="start-screen">
+            <h1>Telapoka Flapper</h1>
+            <p>Press SPACE / W / ArrowUp to Flap!</p>
+            <p>Avoid the pipes!</p>
+             <div id="start-instructions">
+                <p>Click START or Press SPACE to Begin</p>
+            </div>
+            <button class="start-button">START</button>
+        </div>
+
+        <div id="game-over-screen">
+            <h2>GAME OVER!</h2>
+            <img id="game-over-image" src="" alt="Game Over Meme">
+            <p id="game-over-taunt">You failed!</p>
+            <p id="final-score-display">Final Score: <span id="final-score">0</span></p>
+            <p id="final-rank-display">Rank: <span id="final-rank">N/A</span></p> {/* Added Rank Display */}
+            <button class="restart-button">RESTART</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Debug Logging ---
+        const DEBUG = false; // Set to true to enable console logs
+        function log(...args) {
+            if (DEBUG) {
+                console.log(...args);
+            }
+        }
+
+        // --- Game Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const messageArea = document.getElementById('message-area');
+        const joyBanglaMessage = document.getElementById('joy-bangla-message');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startButton = startScreen.querySelector('.start-button');
+        const restartButton = gameOverScreen.querySelector('.restart-button');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const finalRankDisplay = document.getElementById('final-rank'); // Get rank element
+        const gameOverImage = document.getElementById('game-over-image');
+        const gameOverTaunt = document.getElementById('game-over-taunt');
+
+        // Game dimensions
+        canvas.width = 800;
+        canvas.height = 600;
+        gameContainer.style.width = `${canvas.width}px`;
+        gameContainer.style.height = `${canvas.height}px`;
+
+        // --- Game State ---
+        let gameState = 'start'; // 'start', 'playing', 'gameOver'
+        let score = 0;
+        let frames = 0;
+        let gameSpeed = 1.8; // Initial speed
+        let pipeGap = 210; // Initial gap
+
+        // --- Game Constants ---
+        const GRAVITY = 0.45;
+        const LIFT = -8;
+        const MAX_SPEED = 6.0;
+        const MIN_PIPE_GAP = 145;
+        const PIPE_WIDTH = 80;
+        const PIPE_SPAWN_RATE = 150;
+        const SPEED_INCREASE_INTERVAL = 4;
+        const SPEED_VARIATION_INTERVAL = 300;
+        const GROUND_HEIGHT = 50;
+        const ROACH_WIDTH = 50;
+        const ROACH_HEIGHT = 40;
+        const BUILDING_SPAWN_RATE = 200; // How often buildings appear
+        const MAX_BUILDINGS = 7; // Max number of buildings on screen
+
+        // --- Assets ---
+        const pipes = [];
+        const clouds = [];
+        const backgroundBuildings = [];
+
+        const gameOverImages = [
+            'https://i.pinimg.com/736x/77/09/67/77096747b31bcf7abfc2aa31f1eeb979.jpg',
+            'https://media1.tenor.com/m/fVMVEPmccjwAAAAd/cat-laughing.gif',
+            'https://i.pinimg.com/736x/1c/5e/88/1c5e88ae5848ce1f7a4bce03c2eb763b.jpg',
+            'https://i.pinimg.com/736x/2d/98/ef/2d98ef1ec7c84ea30a481bec18d0ce15.jpg',
+            'https://i.pinimg.com/736x/9e/91/4c/9e914c95ac489f6ab0cd4b9cf311525c.jpg'
+        ];
+        const gameOverTaunts = [
+            "Is that all you've got? Weak.", "Embarrassing display, honestly.", "Get on my level before you try that again.",
+            "My grandma could dodge that.", "Maybe this isn't for you?", "Skill issue remains.", "Try again, cutie.",
+            "Aw, nice effort, sweetie.", "Not bad... for a beginner.", "A for effort, F for execution."
+        ];
+        // Cleaned Poster URLs
+        const posterImageSources = [
+             'https://pbs.twimg.com/media/F8bWeatW8AAK7kV.jpg',
+             'https://pbs.twimg.com/media/GQLObNcXUAAhS3x.jpg', // Removed :large
+             'https://pbs.twimg.com/media/EdAkvitWsAANvpI.jpg',
+             'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQduBpSPNy5RaHo2i339OtX5wf0S3XHFAy4g3HS92NBM66JSdU6n_TzByHgrs1LsVyhQqQ', // Removed &usqp=CAU (usually not needed)
+             'https://pbs.twimg.com/media/GhaG0OaXIAA0Ew-.jpg' // Removed :large
+        ];
+
+        const preloadedGameOverImages = [];
+        const preloadedPosterImages = []; // Array for preloaded posters
+
+        let assetsLoaded = 0;
+        // Total assets = game over images + poster images
+        let totalAssets = gameOverImages.length + posterImageSources.length;
+
+        function handleAssetLoad(assetType = 'unknown') {
+            assetsLoaded++;
+            log(`Asset loaded (${assetType}): ${assetsLoaded}/${totalAssets}`);
+            if (assetsLoaded === totalAssets) {
+                log("All assets loaded!");
+                 // Now safe to draw initial state with potentially loaded posters
+                 drawInitialState();
+            }
+        }
+
+        // Preload Game Over Images
+        gameOverImages.forEach(src => {
+            const img = new Image();
+            img.onload = () => handleAssetLoad('game over');
+            img.onerror = () => {
+                console.error(`Failed to load game over image: ${src}`);
+                handleAssetLoad('game over error');
+                img.src = `https://placehold.co/300x200/ff0000/ffffff?text=Load+Error`;
+            };
+            img.src = src;
+            preloadedGameOverImages.push(img);
+        });
+
+        // Preload Poster Images
+         posterImageSources.forEach(src => {
+            const img = new Image();
+            img.onload = () => handleAssetLoad('poster');
+            img.onerror = () => {
+                console.error(`Failed to load poster image: ${src}`);
+                handleAssetLoad('poster error'); // Still count it
+                 // Create a fallback placeholder image object
+                 const fallbackImg = new Image();
+                 fallbackImg.src = `https://placehold.co/50x70/ff0000/ffffff?text=Error`;
+                 // Replace the failed image object in the array
+                 const index = preloadedPosterImages.findIndex(p => p.originalSrc === src); // Need to track original src
+                 if (index !== -1) {
+                     preloadedPosterImages[index] = fallbackImg;
+                 }
+            };
+            img.originalSrc = src; // Store original source for error handling lookup
+            img.src = src;
+            preloadedPosterImages.push(img);
+        });
+
+
+        // --- Audio ---
+        let audioContextStarted = false;
+        let flapSound, scoreSound, hitSound, bgm;
+
+        function setupAudio() {
+            if (audioContextStarted) return;
+            try {
+                Tone.start();
+                flapSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination();
+                scoreSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.05, sustain: 0, release: 0.1 } }).toDestination();
+                hitSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination();
+                const bgmPattern = new Tone.Sequence((time, note) => {
+                    flapSound.triggerAttackRelease(note, '8n', time);
+                }, ['C4', 'E4', 'G4', 'E4', 'A4', 'G4', 'E4', 'D4'], '4n');
+                bgm = bgmPattern;
+                bgm.loop = true;
+                bgm.playbackRate = 0.8;
+                Tone.Transport.bpm.value = 100;
+                audioContextStarted = true;
+                log("Audio context started and sounds initialized.");
+            } catch (e) {
+                console.error("Failed to initialize Tone.js:", e);
+                // Disable audio functions if setup fails
+                playFlapSound = playScoreSound = playHitSound = startBGM = stopBGM = () => {};
+            }
+        }
+        function playFlapSound() { if (!audioContextStarted) return; flapSound.triggerAttackRelease('G5', '16n'); }
+        function playScoreSound() { if (!audioContextStarted) return; scoreSound.triggerAttackRelease('E6', '16n'); }
+        function playHitSound() { if (!audioContextStarted) return; hitSound.triggerAttackRelease('C3', '8n'); }
+        function startBGM() { if (!audioContextStarted || Tone.Transport.state === 'started') return; log("Starting BGM"); Tone.Transport.start(); bgm.start(0); }
+        function stopBGM() { if (!audioContextStarted || Tone.Transport.state === 'stopped') return; log("Stopping BGM"); bgm.stop(); Tone.Transport.stop(); }
+
+
+        // --- Game Objects ---
+        const roach = {
+            x: 150, y: canvas.height / 2 - ROACH_HEIGHT / 2, width: ROACH_WIDTH, height: ROACH_HEIGHT, velocity: 0, rotation: 0,
+            draw: function() {
+                ctx.save();
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                let angle = Math.PI / 180 * (this.velocity * 2);
+                if (angle > Math.PI / 4) angle = Math.PI / 4; if (angle < -Math.PI / 4) angle = -Math.PI / 4;
+                this.rotation = angle;
+                ctx.rotate(this.rotation);
+                // Body
+                ctx.fillStyle = '#654321'; ctx.beginPath(); ctx.ellipse(0, 0, this.width / 2.2, this.height / 2, 0, 0, Math.PI * 2); ctx.fill();
+                // Legs
+                ctx.strokeStyle = '#3b2a1a'; ctx.lineWidth = 2; ctx.beginPath();
+                ctx.moveTo(-this.width * 0.1, -this.height * 0.4); ctx.lineTo(-this.width * 0.4, -this.height * 0.6); ctx.moveTo(-this.width * 0.15, 0); ctx.lineTo(-this.width * 0.5, 0); ctx.moveTo(-this.width * 0.1, this.height * 0.4); ctx.lineTo(-this.width * 0.4, this.height * 0.6);
+                ctx.moveTo(this.width * 0.1, -this.height * 0.4); ctx.lineTo(this.width * 0.4, -this.height * 0.6); ctx.moveTo(this.width * 0.15, 0); ctx.lineTo(this.width * 0.5, 0); ctx.moveTo(this.width * 0.1, this.height * 0.4); ctx.lineTo(this.width * 0.4, this.height * 0.6); ctx.stroke();
+                // Antennae
+                ctx.strokeStyle = '#3b2a1a'; ctx.lineWidth = 1.5; ctx.beginPath();
+                ctx.moveTo(this.width * 0.3, -this.height * 0.3); ctx.quadraticCurveTo(this.width * 0.5, -this.height * 0.8, this.width * 0.6, -this.height * 0.7);
+                ctx.moveTo(this.width * 0.3, -this.height * 0.35); ctx.quadraticCurveTo(this.width * 0.45, -this.height * 0.9, this.width * 0.55, -this.height * 0.8); ctx.stroke();
+                // Bowtie
+                const bw = this.width * 0.3, bh = this.height * 0.25; ctx.fillStyle = '#FF69B4'; ctx.beginPath();
+                ctx.moveTo(0, -this.height * 0.2); ctx.lineTo(-bw / 2, -this.height * 0.2 - bh / 2); ctx.lineTo(-bw / 2, -this.height * 0.2 + bh / 2); ctx.closePath();
+                ctx.moveTo(0, -this.height * 0.2); ctx.lineTo(bw / 2, -this.height * 0.2 - bh / 2); ctx.lineTo(bw / 2, -this.height * 0.2 + bh / 2); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#FF1493'; ctx.fillRect(-bw * 0.1, -this.height * 0.2 - bh * 0.2, bw * 0.2, bh * 0.4);
+                ctx.restore();
+            },
+            update: function() { this.velocity += GRAVITY; this.y += this.velocity; if (this.y < 0) { this.y = 0; this.velocity = 0; } },
+            flap: function() { if (this.y > 0) { this.velocity = LIFT; playFlapSound(); } },
+            reset: function() { this.y = canvas.height / 2 - this.height / 2; this.velocity = 0; this.rotation = 0; }
+        };
+
+        function createPipePair() {
+            const minHeight = 50; const availableSpace = canvas.height - GROUND_HEIGHT - pipeGap - (minHeight * 2);
+            const topHeight = Math.floor(Math.random() * availableSpace) + minHeight; const bottomY = topHeight + pipeGap;
+            pipes.push({ x: canvas.width, y: 0, width: PIPE_WIDTH, height: topHeight, isTop: true, scored: false });
+            pipes.push({ x: canvas.width, y: bottomY, width: PIPE_WIDTH, height: canvas.height - bottomY - GROUND_HEIGHT, isTop: false, scored: false });
+            log("Created pipe pair. Total pipes:", pipes.length);
+        }
+
+        function updatePipes() {
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].x -= gameSpeed;
+                if (!pipes[i].scored && pipes[i].isTop && pipes[i].x + pipes[i].width < roach.x) {
+                    score++; pipes[i].scored = true;
+                    const bottomPipeIndex = pipes.findIndex((p, idx) => idx !== i && p.x === pipes[i].x && !p.isTop);
+                    if (bottomPipeIndex !== -1) { pipes[bottomPipeIndex].scored = true; }
+                    scoreDisplay.textContent = score; playScoreSound(); log("Score:", score);
+                    if (score > 0 && score % SPEED_INCREASE_INTERVAL === 0) {
+                        gameSpeed = Math.min(MAX_SPEED, gameSpeed + 0.2); pipeGap = Math.max(MIN_PIPE_GAP, pipeGap - 5);
+                        log(`Difficulty increased: Speed=${gameSpeed.toFixed(1)}, Gap=${pipeGap}`);
+                    }
+                    if (score > 0 && score % 10 === 0) { showJoyBangla(); }
+                }
+                if (pipes[i].x + pipes[i].width < 0) { pipes.splice(i, 1); log("Removed off-screen pipe. Total pipes:", pipes.length); }
+            }
+            if (frames % PIPE_SPAWN_RATE === 0) { createPipePair(); }
+        }
+
+        function drawPipes() {
+            ctx.fillStyle = '#008000'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+            pipes.forEach(pipe => {
+                ctx.fillRect(pipe.x, pipe.y, pipe.width, pipe.height); ctx.strokeRect(pipe.x, pipe.y, pipe.width, pipe.height);
+                const capH = 20, capW = pipe.width + 10, capX = pipe.x - (capW - pipe.width) / 2;
+                let capY = pipe.isTop ? pipe.y + pipe.height - capH / 2 : pipe.y - capH / 2;
+                ctx.fillRect(capX, capY, capW, capH); ctx.strokeRect(capX, capY, capW, capH);
+            });
+        }
+
+        function createCloud() {
+            const cY = Math.random() * (canvas.height * 0.4), cS = Math.random() * 40 + 30, cSp = Math.random() * 0.5 + 0.2;
+            clouds.push({ x: canvas.width + Math.random() * 100, y: cY, size: cS, speed: cSp });
+        }
+        function updateClouds() {
+            for (let i = clouds.length - 1; i >= 0; i--) { clouds[i].x -= clouds[i].speed; if (clouds[i].x + clouds[i].size * 2 < 0) { clouds.splice(i, 1); } }
+            if (frames % 200 === 0 && clouds.length < 10) { createCloud(); }
+        }
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            clouds.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, c.size * 0.6, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(c.x + c.size * 0.4, c.y - c.size * 0.3, c.size * 0.4, Math.PI * 1, Math.PI * 2); ctx.arc(c.x + c.size * 0.9, c.y, c.size * 0.6, Math.PI * 1.5, Math.PI * 0.5); ctx.closePath(); ctx.fill(); });
+        }
+
+        // --- Background Buildings with Posters ---
+        function createBackgroundBuilding() {
+             if (preloadedPosterImages.length === 0) {
+                 log("Posters not loaded yet, skipping building creation.");
+                 return; // Don't create if posters aren't ready
+             }
+
+             // Choose a random poster
+             const posterImg = preloadedPosterImages[Math.floor(Math.random() * preloadedPosterImages.length)];
+
+             // Simple building properties
+             const buildingWidth = Math.random() * 80 + 70; // Random width
+             const buildingHeight = Math.random() * (canvas.height * 0.6) + (canvas.height * 0.2); // Random height, min 20% max 80% of canvas height
+             const buildingY = canvas.height - GROUND_HEIGHT - buildingHeight;
+             const buildingSpeed = gameSpeed * 0.3; // Slower than foreground
+             // Assign a random color for the building shape
+             const buildingColor = `hsl(${Math.random() * 360}, 30%, ${Math.random() * 20 + 40}%)`; // Random muted color
+
+
+             backgroundBuildings.push({
+                 x: canvas.width + Math.random() * 50, // Start off-screen
+                 y: buildingY,
+                 width: buildingWidth,
+                 height: buildingHeight,
+                 color: buildingColor,
+                 poster: posterImg, // Assign the preloaded poster image object
+                 speed: buildingSpeed
+             });
+             log("Created building with poster.");
+         }
+
+         function updateBackgroundBuildings() {
+             for (let i = backgroundBuildings.length - 1; i >= 0; i--) {
+                 const building = backgroundBuildings[i];
+                 building.x -= building.speed;
+                 if (building.x + building.width < 0) {
+                     backgroundBuildings.splice(i, 1);
+                 }
+             }
+             // Add new buildings occasionally
+             if (frames % BUILDING_SPAWN_RATE === 0 && backgroundBuildings.length < MAX_BUILDINGS) {
+                 createBackgroundBuilding();
+             }
+             // Update speed based on game speed
+             backgroundBuildings.forEach(b => b.speed = gameSpeed * 0.3);
+         }
+
+         function drawBackgroundBuildings() {
+             backgroundBuildings.forEach(building => {
+                 // Draw the building shape (rectangle)
+                 ctx.fillStyle = building.color;
+                 ctx.fillRect(building.x, building.y, building.width, building.height);
+                 ctx.strokeStyle = 'rgba(0,0,0,0.5)'; // Slight outline
+                 ctx.strokeRect(building.x, building.y, building.width, building.height);
+
+                 // Draw the poster on the building
+                 if (building.poster && building.poster.complete && building.poster.naturalHeight !== 0) {
+                     // Calculate poster size and position relative to building
+                     const posterAspectRatio = building.poster.naturalWidth / building.poster.naturalHeight;
+                     let posterDrawWidth = building.width * 0.7; // Poster covers 70% of building width
+                     let posterDrawHeight = posterDrawWidth / posterAspectRatio;
+
+                     // Adjust if poster height is too large for the building
+                     if (posterDrawHeight > building.height * 0.8) {
+                         posterDrawHeight = building.height * 0.8;
+                         posterDrawWidth = posterDrawHeight * posterAspectRatio;
+                     }
+                      // Ensure width doesn't exceed building width after height adjustment
+                     if (posterDrawWidth > building.width * 0.9) {
+                          posterDrawWidth = building.width * 0.9;
+                          posterDrawHeight = posterDrawWidth / posterAspectRatio;
+                     }
+
+
+                     // Center the poster on the building face
+                     const posterX = building.x + (building.width - posterDrawWidth) / 2;
+                     const posterY = building.y + (building.height - posterDrawHeight) / 2; // Center vertically too
+
+                     try {
+                        ctx.drawImage(building.poster, posterX, posterY, posterDrawWidth, posterDrawHeight);
+                     } catch (e) {
+                         console.error("Error drawing poster image:", e, building.poster.src);
+                         // Optionally draw a placeholder if drawImage fails
+                         ctx.fillStyle = 'red';
+                         ctx.fillRect(posterX, posterY, posterDrawWidth, posterDrawHeight);
+                     }
+                 } else if (building.poster) {
+                     // Poster assigned but not loaded/failed - draw placeholder
+                     const posterDrawWidth = building.width * 0.7;
+                     const posterDrawHeight = posterDrawWidth / 1.4; // Approx aspect ratio
+                     const posterX = building.x + (building.width - posterDrawWidth) / 2;
+                     const posterY = building.y + (building.height - posterDrawHeight) / 2;
+                     ctx.fillStyle = '#555';
+                     ctx.fillRect(posterX, posterY, posterDrawWidth, posterDrawHeight);
+                     ctx.fillStyle = '#fff';
+                     ctx.fillText('?', posterX + posterDrawWidth/2 - 5, posterY + posterDrawHeight/2 + 5);
+                     log("Poster image not ready:", building.poster.src);
+                 }
+             });
+         }
+
+
+        function drawGround() {
+            ctx.fillStyle = '#ded895'; ctx.fillRect(0, canvas.height - GROUND_HEIGHT, canvas.width, GROUND_HEIGHT);
+            ctx.strokeStyle = '#8b7e4a'; ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath(); ctx.moveTo(i + Math.random() * 5, canvas.height - GROUND_HEIGHT + Math.random() * GROUND_HEIGHT * 0.8 + GROUND_HEIGHT * 0.1);
+                ctx.lineTo(i + 10 + Math.random() * 5, canvas.height - GROUND_HEIGHT + Math.random() * GROUND_HEIGHT * 0.8 + GROUND_HEIGHT * 0.1); ctx.stroke();
+            }
+        }
+
+        // --- Collision Detection ---
+        function checkCollisions() {
+            if (roach.y + roach.height >= canvas.height - GROUND_HEIGHT) { log("Collision: Ground"); return true; }
+            for (const pipe of pipes) {
+                if (roach.x < pipe.x + pipe.width && roach.x + roach.width > pipe.x && roach.y < pipe.y + pipe.height && roach.y + roach.height > pipe.y) {
+                    log("Collision: Pipe"); return true;
+                }
+            }
+            return false;
+        }
+
+        // --- Rank System ---
+        function getRank(score) {
+            if (score < 5) return "Beginner";
+            if (score < 15) return "Novice Flapper";
+            if (score < 30) return "Skilled Dodger";
+            if (score < 50) return "Pipe Pro";
+            if (score < 75) return "Telapoka Expert";
+            if (score < 100) return "Roach Master";
+            return "Telapoka GOD!"; // Top rank
+        }
+
+        // --- Game Loop ---
+        function gameLoop() {
+            if (gameState !== 'playing') { return; } // Stop the loop if not playing
+
+            // Update
+            frames++; roach.update(); updatePipes(); updateClouds(); updateBackgroundBuildings();
+            if (frames % SPEED_VARIATION_INTERVAL === 0) {
+                const speedChange = (Math.random() - 0.5) * 0.4; gameSpeed = Math.max(1.0, Math.min(MAX_SPEED, gameSpeed + speedChange));
+                log(`Speed varied: ${gameSpeed.toFixed(1)}`); backgroundBuildings.forEach(b => b.speed = gameSpeed * 0.3); // Update building speed too
+            }
+            if (checkCollisions()) { gameOver(); return; }
+
+            // Draw
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawClouds(); drawBackgroundBuildings(); // Draw background first
+            drawPipes(); drawGround(); roach.draw(); // Draw foreground
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Game State Management ---
+        function startGame() {
+            log("Starting game...");
+            if (!audioContextStarted) { setupAudio(); }
+            resetGame(); gameState = 'playing'; gameContainer.className = 'playing';
+            startBGM(); requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+             if (gameState === 'gameOver') return;
+            log("Game Over!"); gameState = 'gameOver'; gameContainer.className = 'game-over';
+            playHitSound(); stopBGM();
+
+            const randomImageIndex = Math.floor(Math.random() * preloadedGameOverImages.length);
+            const randomTauntIndex = Math.floor(Math.random() * gameOverTaunts.length);
+            gameOverImage.src = preloadedGameOverImages[randomImageIndex].src;
+            gameOverImage.onerror = () => { gameOverImage.src = `https://placehold.co/300x200/ff0000/ffffff?text=Load+Error`; }
+            gameOverTaunt.textContent = gameOverTaunts[randomTauntIndex];
+            finalScoreDisplay.textContent = score;
+            finalRankDisplay.textContent = getRank(score); // Calculate and display rank
+        }
+
+        function resetGame() {
+            log("Resetting game...");
+            score = 0; frames = 0; gameSpeed = 1.8; pipeGap = 210;
+            pipes.length = 0; clouds.length = 0; backgroundBuildings.length = 0;
+            roach.reset(); scoreDisplay.textContent = score; joyBanglaMessage.style.display = 'none';
+            gameContainer.className = ''; // Reset container class
+
+            // Add initial visual elements if assets are loaded
+            if (assetsLoaded >= totalAssets) {
+                 for(let i=0; i<3; i++) createCloud();
+                 for(let i=0; i<2; i++) createBackgroundBuilding();
+            }
+        }
+
+        function showJoyBangla() {
+            joyBanglaMessage.style.display = 'block'; joyBanglaMessage.style.animation = 'none';
+            void joyBanglaMessage.offsetWidth; joyBanglaMessage.style.animation = 'fadeOut 1.5s forwards';
+        }
+
+
+        // --- Event Listeners ---
+        function handleKeyPress(e) {
+            const keyAction = e.code === 'Space' || e.code === 'ArrowUp' || e.key.toLowerCase() === 'w';
+            if (gameState === 'start' && keyAction) { e.preventDefault(); startGame(); }
+            else if (gameState === 'playing' && keyAction) { e.preventDefault(); roach.flap(); }
+        }
+        function handleMouseClick(e) {
+            if (gameState === 'start' && e.target === startButton) { startGame(); }
+            else if (gameState === 'gameOver' && e.target === restartButton) { startGame(); }
+        }
+        window.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('click', handleMouseClick);
+        canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+        canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
+
+
+        // --- Initial Setup ---
+        function drawInitialState() {
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             // Draw initial clouds, buildings (with posters if loaded), ground
+             drawClouds();
+             drawBackgroundBuildings();
+             drawGround();
+        }
+
+        // Reset game state initially (clears arrays, sets positions)
+        resetGame();
+        // Attempt to draw initial state - posters might not be loaded yet, handled in draw func
+        // Assets loaded check inside handleAssetLoad will redraw if needed later
+        if (assetsLoaded < totalAssets) {
+            log("Assets not fully loaded, drawing initial state without posters potentially.");
+            drawInitialState(); // Draw ground/sky at least
+        }
+        // If assets ARE already loaded (e.g., cached), drawInitialState called by last handleAssetLoad
+
+        log("Game initialized. Waiting for player to start.");
+
+    </script>
+</body>
+</html>
